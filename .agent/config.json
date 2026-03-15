@@ -1,0 +1,109 @@
+{
+  "agent": {
+    "name": "StudyFlow Dev Agent",
+    "version": "1.0.0",
+    "model": "gemini-2.0-flash",
+    "thinking_level": "high",
+    "description": "Agentic AI developer for the StudyFlow academic time management platform"
+  },
+
+  "capabilities": {
+    "browser_control": true,
+    "terminal_access": "auto",
+    "file_system_access": true,
+    "internet_access": true,
+    "code_execution": true
+  },
+
+  "terminal": {
+    "auto_approve_commands": [
+      "pnpm install",
+      "pnpm add *",
+      "pnpm run dev",
+      "pnpm run build",
+      "pnpm run lint",
+      "pnpm type-check",
+      "pnpm prisma generate",
+      "pnpm prisma migrate dev",
+      "pnpm prisma studio",
+      "pnpm prisma db push"
+    ],
+    "always_ask_before": [
+      "rm -rf *",
+      "drop table",
+      "DELETE FROM",
+      "git push --force",
+      "pnpm prisma migrate reset"
+    ],
+    "working_directory": "./",
+    "package_manager": "pnpm"
+  },
+
+  "browser": {
+    "auto_open_on_dev_start": true,
+    "default_url": "http://localhost:3000",
+    "screenshot_on_error": true,
+    "test_after_ui_changes": true
+  },
+
+  "context_files": {
+    "always_read": [
+      "AGENT.md",
+      "SKILL.md",
+      "prisma/schema.prisma",
+      ".env.local.example"
+    ],
+    "read_on_demand": [
+      "README.md",
+      "TASKS.md"
+    ]
+  },
+
+  "code_rules": {
+    "language": "typescript",
+    "strict_mode": true,
+    "no_any_types": true,
+    "framework": "nextjs-15-app-router",
+    "css_method": "tailwind-only",
+    "component_library": "shadcn-ui",
+    "orm": "prisma",
+    "database": "postgresql",
+    "auth_provider": "supabase",
+    "package_manager": "pnpm",
+    "test_framework": "vitest"
+  },
+
+  "ai_integration": {
+    "provider": "google",
+    "model": "gemini-2.0-flash",
+    "api_key_env": "GEMINI_API_KEY",
+    "max_tokens": 2048,
+    "temperature": 0.7,
+    "rate_limit_per_user_minutes": 10
+  },
+
+  "environment_variables_required": [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "GEMINI_API_KEY",
+    "NEXTAUTH_SECRET",
+    "NEXTAUTH_URL"
+  ],
+
+  "on_start": {
+    "check_env_vars": true,
+    "run_type_check": true,
+    "auto_migrate_db": false,
+    "open_browser": true
+  },
+
+  "on_error": {
+    "auto_retry": true,
+    "max_retries": 3,
+    "screenshot_ui_errors": true,
+    "log_to_file": ".agent/logs/errors.log"
+  }
+}

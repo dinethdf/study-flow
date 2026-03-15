@@ -1,0 +1,263 @@
+# StudyFlow MVP — Implementation Plan
+
+AI-powered academic time management app for school & university students.  
+Built on **Next.js 15 App Router · TypeScript strict · Tailwind CSS · shadcn/ui · Prisma · Supabase · Gemini 2.0 Flash**.
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Phase 2 is approval-gated.** After you approve this plan I will scaffold the Next.js project, install all dependencies, and set up Prisma — but I will **not** write any application code until you say go.
+
+> [!WARNING]
+> You will need to supply real values for `.env.local` before the dev server or any DB operations can succeed:
+> `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+> `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`.
+> I will create a `.env.local.example` file with all variable names so you can fill them in.
+
+> [!NOTE]
+> The project name in the user request says "StudyHelperDD MVP" but all AGENT.md files consistently use **StudyFlow** — I will use StudyFlow throughout.
+
+---
+
+## Proposed Changes
+
+### Phase 0 — Environment Bootstrap
+
+#### [NEW] `package.json` / Next.js scaffold
+- `pnpm dlx create-next-app@latest ./ --typescript --tailwind --eslint --app --src-dir no --import-alias "@/*"`
+- Installs: `next`, `react`, `react-dom`, `typescript`, `tailwindcss`, `postcss`, `autoprefixer`, `eslint`
+
+#### [NEW] Core dependencies (via `pnpm add`)
+| Package | Purpose |
+|---|---|
+| `@prisma/client` + `prisma` | ORM |
+| `@supabase/supabase-js` + `@supabase/ssr` | Auth & DB client |
+| `zod` | Input validation |
+| `react-hook-form` + `@hookform/resolvers` | Forms |
+| `zustand` | Global state |
+| `@tanstack/react-query` | Server state |
+| `react-big-calendar` + `date-fns` | Calendar view |
+| `@google/generative-ai` | Gemini API |
+| `lucide-react` | Icons |
+| `class-variance-authority` + `clsx` + `tailwind-merge` | shadcn/ui utilities |
+
+#### [NEW] shadcn/ui init + components
+- `pnpm dlx shadcn@latest init`
+- Add components: `button`, `card`, `badge`, `progress`, `dialog`, `form`, `input`, `select`, `slider`, `calendar`, `dropdown-menu`, `avatar`, `separator`, `toast`
+
+#### [NEW] `.env.local.example`
+All 8 required environment variables with placeholder values.
+
+#### [MODIFY] `tsconfig.json`
+- Ensure `strict: true`, `noImplicitAny: true`, path alias `@/*` → `./*`
+
+---
+
+### Phase 1 — Database (Prisma + Supabase)
+
+#### [NEW] `prisma/schema.prisma`
+Exact schema as defined in AGENT.md:
+- Models: `User`, `Subject`, `Topic`, `ExamDate`, `Schedule`, `ScheduleSession`
+- Enums: `UserType`, `SessionType`
+
+#### [NEW] `prisma/migrations/` (auto-generated)
+Run `pnpm prisma migrate dev --name init` → generates SQL migration file.
+
+---
+
+### Phase 2 — Supabase Auth Layer
+
+#### [NEW] `lib/supabase/client.ts`
+Browser-side Supabase singleton using `createBrowserClient` from `@supabase/ssr`.
+
+#### [NEW] `lib/supabase/server.ts`
+Server-side client using `createServerClient` with Next.js cookie adapter.
+
+#### [NEW] `middleware.ts`
+- Refreshes Supabase session on every request
+- Redirects unauthenticated users away from `/dashboard/*` routes to `/login`
+- Redirects authenticated users away from `/login` and `/register` to `/dashboard`
+
+#### [NEW] `app/(auth)/login/page.tsx`
+- Email + password sign-in
+- Google OAuth button → Supabase `signInWithOAuth`
+- Link to `/register`
+
+#### [NEW] `app/(auth)/register/page.tsx`
+- Collects: name, email, password, user type (School/University), institution
+- Uses `studentEmailSchema` / `universityEmailSchema` from Skill 1
+
+#### [NEW] `app/api/auth/callback/route.ts`
+- Handles `code` query param from Supabase OAuth redirect
+- Exchanges code for session and redirects to `/dashboard`
+
+---
+
+### Phase 3 — App Shell & Layout
+
+#### [NEW] `app/(dashboard)/layout.tsx`
+- Auth guard (redirect to `/login` if no session)
+- Renders `<Sidebar>` + `<TopBar>` + `{children}`
+
+#### [NEW] `components/layout/Sidebar.tsx`
+- Navigation links: Dashboard, Subjects, Exams, Schedule
+- User avatar + sign-out button at bottom
+
+#### [NEW] `components/layout/TopBar.tsx`
+- Page title (dynamic), user greeting, notification placeholder
+
+#### [NEW] `app/(dashboard)/dashboard/page.tsx`
+- Stats: total subjects, overall avg progress, upcoming exams count, active schedule status
+- Quick-action cards
+
+---
+
+### Phase 4 — Subjects & Topics
+
+#### [NEW] `lib/validators/subjectSchema.ts`
+```ts
+createSubjectSchema = z.object({ name, color, icon })
+updateSubjectSchema = createSubjectSchema.partial()
+```
+
+#### [NEW] `lib/validators/topicSchema.ts`
+```ts
+createTopicSchema = z.object({ name, description, completionPct, orderIndex, notes })
+updateTopicSchema = createTopicSchema.partial()
+```
+
+#### [NEW] `lib/services/SubjectService.ts`
+Constructor receives a Prisma client. Methods: `getAll`, `create`, `update`, `delete`, `recalculateCompletion`.
+
+#### [NEW] `app/api/subjects/route.ts` + `[id]/route.ts`
+GET/POST + PATCH/DELETE — Auth-gated, Zod-validated (Skill 5 template).
+
+#### [NEW] `app/api/subjects/[id]/topics/route.ts` + `[topicId]/route.ts`
+Topic CRUD; PATCH auto-recalculates parent subject `completionPct`.
+
+#### [NEW] `components/features/subjects/SubjectCard.tsx`
+Follows Skill 3 template exactly — color dot, progress bar, topic count badge.
+
+#### [NEW] `components/features/subjects/SubjectForm.tsx`
+React Hook Form + Zod. Color picker (preset swatches), emoji icon picker.
+
+#### [NEW] `components/features/subjects/TopicList.tsx` + `TopicForm.tsx`
+Slider + number input in sync. Optimistic UI updates via Zustand.
+
+#### [NEW] `app/(dashboard)/subjects/page.tsx`
+Grid of `SubjectCard`, FAB to add subject, expandable topic drawer.
+
+#### [NEW] `hooks/useSubjects.ts` + `store/subjectStore.ts`
+TanStack Query for fetching; Zustand for optimistic local state.
+
+---
+
+### Phase 5 — Exam Management
+
+#### [NEW] `lib/validators/examSchema.ts`
+```ts
+createExamSchema = z.object({ title, examDate, subjectId, location, duration, notes })
+```
+
+#### [NEW] `lib/services/ExamService.ts`
+CRUD, auto-sorted by `examDate` ascending.
+
+#### [NEW] `app/api/exams/route.ts` + `[id]/route.ts`
+Same Skill 5 pattern.
+
+#### [NEW] `components/features/exams/ExamCard.tsx` + `ExamForm.tsx`
+Shows: exam title, subject color badge, date/time, location, countdown in days.
+
+#### [NEW] `app/(dashboard)/exams/page.tsx`
+Timeline view of upcoming exams, past exams collapsible.
+
+#### [NEW] `hooks/useExams.ts`
+
+---
+
+### Phase 6 — AI Schedule Generation
+
+#### [NEW] `lib/ai/scheduleGenerator.ts`
+- `buildSchedulePrompt(data)` — exact template from Skill 4
+- `callGemini(prompt)` — uses `@google/generative-ai`, reads `GEMINI_API_KEY` from env
+- `parseAndValidateSchedule(raw)` — Zod validates the JSON Gemini returns
+- `buildFallbackSchedule(data)` — rule-based fallback (no AI)
+
+#### [NEW] `lib/services/ScheduleService.ts`
+- `generateAndSave(userId)` — orchestrates prompt build → Gemini call → DB write
+- `getActive(userId)` — fetches schedule + sessions with subject/topic joins
+- Rate-limit check: queries last schedule creation time, rejects if < 10 min ago
+
+#### [NEW] `app/api/schedule/generate/route.ts`
+POST. Auth-gated, rate-limited (via `ScheduleService`). Deactivates previous active schedule before saving new one.
+
+#### [NEW] `app/api/schedule/route.ts`
+GET active schedule with all sessions.
+
+#### [NEW] `components/features/schedule/GenerateScheduleButton.tsx`
+Shows loading spinner during generation, displays rate-limit remaining time if throttled.
+
+---
+
+### Phase 7 — Calendar View
+
+#### [NEW] `components/features/schedule/StudyCalendar.tsx`
+- Uses `react-big-calendar` with `date-fns` localizer
+- Transforms `ScheduleSession[]` → BigCalendar `Event[]`
+- Sessions colored by subject's hex color
+- Supports month / week / day toolbar
+
+#### [NEW] `app/(dashboard)/schedule/page.tsx`
+- `<GenerateScheduleButton>` at top
+- `<StudyCalendar>` takes up remaining space
+
+---
+
+### Phase 8 — Shared Utilities & Types
+
+#### [NEW] `types/index.ts`
+`SubjectWithTopics`, `ExamWithSubject`, `ScheduleWithSessions`, `ScheduleSessionWithRelations`
+
+#### [NEW] `lib/utils.ts`
+`cn()` helper (clsx + tailwind-merge), date formatters, session type label map.
+
+#### [NEW] `lib/validators/emailSchema.ts`
+`studentEmailSchema`, `universityEmailSchema` from Skill 1.
+
+---
+
+## Verification Plan
+
+### Automated Checks (run in order)
+
+```bash
+# Type safety
+pnpm type-check          # zero TypeScript errors
+
+# Lint
+pnpm lint                # zero ESLint errors
+
+# Build smoke test
+pnpm build               # must complete without errors
+```
+
+> No existing test suite found (empty repo). I will not fabricate unit tests. Manual browser verification is the primary quality gate for this MVP phase.
+
+### Manual Browser Verification
+
+After `pnpm dev` starts at `http://localhost:3000`:
+
+| # | Action | Expected Result |
+|---|--------|-----------------|
+| 1 | Visit `/register` → fill name, school email, password → submit | Account created, redirected to `/dashboard` |
+| 2 | Sign out → visit `/dashboard` | Redirected to `/login` |
+| 3 | Log in with credentials | Redirected to `/dashboard` |
+| 4 | Navigate to **Subjects** → click Add → fill name/color → Save | New subject card appears |
+| 5 | Expand subject → Add Topic → set progress to 60% | Progress bar on subject card updates |
+| 6 | Navigate to **Exams** → Add exam linked to subject | Exam card shows with countdown |
+| 7 | Navigate to **Schedule** → click **Generate Study Plan** | Loading spinner → calendar populates with color-coded sessions |
+| 8 | Switch calendar to Week view | Sessions appear correctly in week grid |
+| 9 | Click Generate again immediately | Rate-limit message shown (try again in X min) |
+| 10 | Resize browser to 375px wide | All pages remain usable (mobile-first check) |
