@@ -46,11 +46,13 @@ export function SubjectCard({ subject, onClick, onDelete, onEdit }: SubjectCardP
         
         <div onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                <MoreVertical size={16} />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger 
+              render={
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                  <MoreVertical size={16} />
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end" className="w-32">
               <DropdownMenuItem onClick={onEdit} className="gap-2">
                 <Edit2 size={14} /> Edit

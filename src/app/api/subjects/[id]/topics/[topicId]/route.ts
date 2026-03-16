@@ -6,9 +6,10 @@ import { updateTopicSchema } from '@/lib/validators/topicSchema';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string, topicId: string } }
+  { params }: { params: Promise<{ id: string, topicId: string }> }
 ) {
   try {
+    const { id, topicId } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -18,7 +19,7 @@ export async function PATCH(
 
     // Verify subject ownership
     const subject = await prisma.subject.findFirst({
-      where: { id: params.id, userId: user.id }
+      where: { id: id, userId: user.id }
     });
 
     if (!subject) {
@@ -33,7 +34,7 @@ export async function PATCH(
     }
 
     const subjectService = new SubjectService(prisma);
-    const topic = await subjectService.updateTopic(params.topicId, params.id, parsed.data);
+    const topic = await subjectService.updateTopic(topicId, id, parsed.data);
 
     return NextResponse.json({ data: topic });
   } catch (error) {
@@ -44,9 +45,10 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string, topicId: string } }
+  { params }: { params: Promise<{ id: string, topicId: string }> }
 ) {
   try {
+    const { id, topicId } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -56,7 +58,7 @@ export async function DELETE(
 
     // Verify subject ownership
     const subject = await prisma.subject.findFirst({
-      where: { id: params.id, userId: user.id }
+      where: { id: id, userId: user.id }
     });
 
     if (!subject) {
@@ -64,7 +66,7 @@ export async function DELETE(
     }
 
     const subjectService = new SubjectService(prisma);
-    await subjectService.deleteTopic(params.topicId, params.id);
+    await subjectService.deleteTopic(topicId, id);
 
     return NextResponse.json({ data: null }, { status: 204 });
   } catch (error) {

@@ -6,9 +6,10 @@ import { updateSubjectSchema } from '@/lib/validators/subjectSchema';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -24,7 +25,7 @@ export async function PATCH(
     }
 
     const subjectService = new SubjectService(prisma);
-    const subject = await subjectService.updateSubject(user.id, params.id, parsed.data);
+    const subject = await subjectService.updateSubject(user.id, id, parsed.data);
 
     return NextResponse.json({ data: subject });
   } catch (error) {
@@ -35,9 +36,10 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -46,7 +48,7 @@ export async function DELETE(
     }
 
     const subjectService = new SubjectService(prisma);
-    await subjectService.deleteSubject(user.id, params.id);
+    await subjectService.deleteSubject(user.id, id);
 
     return NextResponse.json({ data: null }, { status: 204 });
   } catch (error) {

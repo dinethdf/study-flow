@@ -24,26 +24,37 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
+// Explicitly define form values to avoid mismatch with Zod's inferred type (including defaults)
+type TopicFormValues = {
+  name: string;
+  description: string;
+  completionPct: number;
+  orderIndex: number;
+  notes: string;
+};
+
 interface TopicFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: z.infer<typeof createTopicSchema>) => Promise<void>;
+  onSubmit: (data: any) => Promise<void>;
   title: string;
 }
 
 export function TopicForm({ open, onOpenChange, onSubmit, title }: TopicFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<z.infer<typeof createTopicSchema>>({
-    resolver: zodResolver(createTopicSchema),
+  const form = useForm<TopicFormValues>({
+    resolver: zodResolver(createTopicSchema) as any,
     defaultValues: {
       name: '',
+      description: '',
       completionPct: 0,
       orderIndex: 0,
+      notes: '',
     },
   });
 
-  const handleSubmit = async (values: z.infer<typeof createTopicSchema>) => {
+  const handleSubmit = async (values: TopicFormValues) => {
     setIsLoading(true);
     try {
       await onSubmit(values);

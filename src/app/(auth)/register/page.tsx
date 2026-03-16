@@ -21,7 +21,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { studentEmailSchema } from '@/lib/validators/emailSchema';
-import { createClient } from '@/lib/supabase/client';
 
 const registerSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -34,7 +33,6 @@ const registerSchema = z.object({
 export default function RegisterPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
-    const supabase = createClient();
 
     const form = useForm<z.infer<typeof registerSchema>>({
         resolver: zodResolver(registerSchema),
@@ -49,44 +47,31 @@ export default function RegisterPage() {
 
     async function onSubmit(values: z.infer<typeof registerSchema>) {
         setIsLoading(true);
+        console.log('Initiating registration via server API...', values.email);
+        
         try {
-            // 1. Sign up with Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: values.email,
-                password: values.password,
-                options: {
-                    data: {
-                        full_name: values.name,
-                        user_type: values.userType,
-                        institution: values.institution,
-                    },
-                },
+            // We now call the server API DIRECTLY.
+            // The server API uses an Admin Client to create the user and auto-confirm them,
+            // bypassing the Supabase email rate limits that often block development.
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(values),
             });
 
-            if (authError) {
-                toast.error(authError.message);
+            const result = await response.json();
+            console.log('Server Registration Response:', result);
+
+            if (!response.ok) {
+                toast.error(result.error || 'Registration failed');
                 return;
             }
 
-            if (authData.user) {
-                // 2. Call our API to sync user with Prisma DB
-                const response = await fetch('/api/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(values),
-                });
-
-                if (!response.ok) {
-                    const data = await response.json();
-                    toast.error(data.error || 'Failed to sync user data');
-                    return;
-                }
-
-                toast.success('Registration successful! Please check your email for confirmation.');
-                router.push('/login');
-            }
+            toast.success('Registration successful! You can now log in.');
+            router.push('/login');
         } catch (error) {
-            toast.error('An unexpected error occurred');
+            console.error('Registration error:', error);
+            toast.error('An unexpected error occurred during registration.');
         } finally {
             setIsLoading(false);
         }

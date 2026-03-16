@@ -102,9 +102,15 @@ export function TopicList({ subjectId, topics, subjectColor }: TopicListProps) {
                 max={100}
                 step={5}
                 className="flex-1"
-                style={{ "--slider-primary": subjectColor } as any}
-                onValueChange={(vals) => setLocalProgress(prev => ({ ...prev, [topic.id]: vals[0] }))}
-                onValueCommit={(vals) => handleUpdateProgress(topic.id, vals[0])}
+                style={{ "--slider-primary": subjectColor } as React.CSSProperties}
+                onValueChange={(vals: any) => {
+                  const val = Array.isArray(vals) ? vals[0] : vals;
+                  setLocalProgress(prev => ({ ...prev, [topic.id]: val }));
+                }}
+                onValueCommitted={(vals: any) => {
+                  const val = Array.isArray(vals) ? vals[0] : vals;
+                  handleUpdateProgress(topic.id, val);
+                }}
               />
               
               <div className={cn(

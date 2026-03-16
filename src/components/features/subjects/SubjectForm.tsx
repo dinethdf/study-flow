@@ -22,6 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 const COLORS = [
   '#3b82f6', // blue
@@ -34,26 +35,33 @@ const COLORS = [
   '#64748b', // slate
 ];
 
+type SubjectFormValues = {
+  name: string;
+  color: string;
+  icon: string;
+};
+
 interface SubjectFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: z.infer<typeof createSubjectSchema>) => Promise<void>;
-  initialData?: z.infer<typeof createSubjectSchema>;
+  onSubmit: (data: any) => Promise<void>;
+  initialData?: Partial<SubjectFormValues>;
   title: string;
 }
 
 export function SubjectForm({ open, onOpenChange, onSubmit, initialData, title }: SubjectFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<z.infer<typeof createSubjectSchema>>({
-    resolver: zodResolver(createSubjectSchema),
-    defaultValues: initialData || {
-      name: '',
-      color: COLORS[0],
+  const form = useForm<SubjectFormValues>({
+    resolver: zodResolver(createSubjectSchema) as any,
+    defaultValues: {
+      name: initialData?.name || '',
+      color: initialData?.color || COLORS[0],
+      icon: initialData?.icon || 'BookOpen',
     },
   });
 
-  const handleSubmit = async (values: z.infer<typeof createSubjectSchema>) => {
+  const handleSubmit = async (values: SubjectFormValues) => {
     setIsLoading(true);
     try {
       await onSubmit(values);
@@ -99,12 +107,11 @@ export function SubjectForm({ open, onOpenChange, onSubmit, initialData, title }
                       <button
                         key={color}
                         type="button"
-                        className={z.string().parse(
-                          `w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${
-                            field.value === color 
-                              ? 'border-foreground ring-2 ring-primary ring-offset-1' 
-                              : 'border-transparent'
-                          }`
+                        className={cn(
+                          "w-8 h-8 rounded-full border-2 transition-all hover:scale-110",
+                          field.value === color 
+                            ? 'border-foreground ring-2 ring-primary ring-offset-1' 
+                            : 'border-transparent'
                         )}
                         style={{ backgroundColor: color }}
                         onClick={() => field.onChange(color)}

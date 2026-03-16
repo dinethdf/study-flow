@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BookOpen, CalendarCheck, CheckCircle2, Clock } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import { cn } from '@/lib/utils';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -12,40 +12,45 @@ export default async function DashboardPage() {
 
   if (!user) return null;
 
-  // Fetch basic stats from Prisma
-  const subjectsCount = await prisma.subject.count({
-    where: { userId: user.id }
-  });
+  // Fetch stats with error handling for DB connection issues
+  let subjectsCount = 0;
+  let examsCount = 0;
+  let dbConnected = true;
 
-  const examsCount = await prisma.examDate.count({
-    where: { userId: user.id, isCompleted: false }
-  });
+  try {
+    subjectsCount = await prisma.subject.count({
+      where: { userId: user.id }
+    });
 
-  const recentSessions = await prisma.scheduleSession.findMany({
-    where: {
-      schedule: { userId: user.id },
-      isCompleted: false,
-    },
-    take: 3,
-    orderBy: { date: 'asc' },
-    include: { subject: true }
-  });
+    examsCount = await prisma.examDate.count({
+      where: { userId: user.id, isCompleted: false }
+    });
+  } catch (error) {
+    console.error('[DASHBOARD_DB_ERROR]', error);
+    dbConnected = false;
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back! Here's an overview of your academic progress.
+          Welcome back, {user.user_metadata?.full_name || 'Student'}! Here&apos;s an overview of your academic progress.
         </p>
       </div>
+
+      {!dbConnected && (
+        <div className="p-4 rounded-lg border border-orange-300 bg-orange-50 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800">
+          <p className="text-sm font-medium">⚠️ Database connection issue — some stats may be unavailable. Your Supabase database may be paused or unreachable.</p>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[
           { title: 'Total Subjects', value: subjectsCount, icon: BookOpen, color: 'text-blue-500' },
           { title: 'Upcoming Exams', value: examsCount, icon: CalendarCheck, color: 'text-orange-500' },
-          { title: 'Topics Completed', value: '12', icon: CheckCircle2, color: 'text-green-500' },
-          { title: 'Study Time Today', value: '2h 15m', icon: Clock, color: 'text-purple-500' },
+          { title: 'Topics Completed', value: '—', icon: CheckCircle2, color: 'text-green-500' },
+          { title: 'Study Time Today', value: '—', icon: Clock, color: 'text-purple-500' },
         ].map((stat) => (
           <Card key={stat.title} className="shadow-sm border-muted/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -66,7 +71,6 @@ export default async function DashboardPage() {
             <CardDescription>Your current completion percentage per subject</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Logic for subjects would go here, using static placeholder for now if no subjects */}
             {subjectsCount === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <p className="text-sm text-muted-foreground mb-4">No subjects added yet</p>
@@ -76,7 +80,7 @@ export default async function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Dynamically render subjects when available */}
+                {/* Subjects progress will render dynamically */}
               </div>
             )}
           </CardContent>
@@ -88,37 +92,15 @@ export default async function DashboardPage() {
             <CardDescription>Your next scheduled study blocks</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentSessions.length === 0 ? (
-                <div className="text-center py-6">
-                  <p className="text-sm text-muted-foreground">No sessions scheduled</p>
-                  <Button asChild variant="link" size="sm" className="mt-2">
-                    <Link href="/schedule">Generate a plan</Link>
-                  </Button>
-                </div>
-              ) : (
-                recentSessions.map((session) => (
-                  <div key={session.id} className="flex items-center gap-3 p-3 rounded-lg bg-accent/30 border border-muted/40">
-                    <div className="w-2 h-10 rounded-full" style={{ backgroundColor: session.subject.color }} />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{session.subject.name}</p>
-                      <p className="text-xs text-muted-foreground">{session.startTime} • {session.durationMinutes} mins</p>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))
-              )}
+            <div className="text-center py-6">
+              <p className="text-sm text-muted-foreground">No sessions scheduled</p>
+              <Button asChild variant="link" size="sm" className="mt-2">
+                <Link href="/schedule">Generate a plan</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
   );
-}
-
-// Helper function locally since utils.ts might not be available yet in some contexts
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
 }

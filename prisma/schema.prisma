@@ -1,7 +1,3 @@
-// StudyFlow — Prisma Schema
-// Database: PostgreSQL via Supabase
-// Run: pnpm prisma migrate dev --name init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,30 +5,114 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// ─────────────────────────────────────────────
-// USER
-// ─────────────────────────────────────────────
-
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
+  id          String     @id @default(cuid())
+  email       String     @unique
   name        String?
   avatarUrl   String?
-  userType    UserType @default(SCHOOL) // School or University student
-  institution String? // Name of school/university
-  timezone    String   @default("UTC")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  subjects  Subject[]
-  examDates ExamDate[]
-  schedules Schedule[]
+  userType    UserType   @default(SCHOOL)
+  institution String?
+  timezone    String     @default("UTC")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  examDates   ExamDate[]
+  schedules   Schedule[]
+  subjects    Subject[]
 
   @@map("users")
+}
+
+model Subject {
+  id               String            @id @default(cuid())
+  name             String
+  color            String            @default("#3b82f6")
+  completionPct    Int               @default(0)
+  icon             String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  userId           String
+  examDates        ExamDate[]
+  scheduleSessions ScheduleSession[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topics           Topic[]
+
+  @@map("subjects")
+}
+
+model Topic {
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  completionPct    Int               @default(0)
+  orderIndex       Int               @default(0)
+  isCompleted      Boolean           @default(false)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  subjectId        String
+  scheduleSessions ScheduleSession[]
+  subject          Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@map("topics")
+}
+
+model ExamDate {
+  id          String   @id @default(cuid())
+  title       String
+  examDate    DateTime
+  location    String?
+  duration    Int?
+  notes       String?
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("exam_dates")
+}
+
+model Schedule {
+  id            String            @id @default(cuid())
+  name          String            @default("My Study Plan")
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean           @default(true)
+  generatedByAI Boolean           @default(true)
+  aiModel       String?           @default("gemini-2.0-flash")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  userId        String
+  sessions      ScheduleSession[]
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
+}
+
+model ScheduleSession {
+  id              String      @id @default(cuid())
+  date            DateTime
+  startTime       String
+  durationMinutes Int
+  sessionType     SessionType @default(NEW_MATERIAL)
+  isCompleted     Boolean     @default(false)
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  scheduleId      String
+  subjectId       String
+  topicId         String?
+  schedule        Schedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  subject         Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic           Topic?      @relation(fields: [topicId], references: [id])
+
+  @@map("schedule_sessions")
 }
 
 enum UserType {
@@ -40,134 +120,9 @@ enum UserType {
   UNIVERSITY
 }
 
-// ─────────────────────────────────────────────
-// SUBJECT
-// ─────────────────────────────────────────────
-
-model Subject {
-  id            String  @id @default(cuid())
-  name          String // e.g. "Mathematics"
-  color         String  @default("#3b82f6") // Hex color for UI
-  completionPct Int     @default(0) // 0–100, auto-calculated from topics
-  icon          String? // Optional emoji or icon name
-  isActive      Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  userId           String
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  topics           Topic[]
-  examDates        ExamDate[]
-  scheduleSessions ScheduleSession[]
-
-  @@map("subjects")
-}
-
-// ─────────────────────────────────────────────
-// TOPIC
-// ─────────────────────────────────────────────
-
-model Topic {
-  id            String  @id @default(cuid())
-  name          String // e.g. "Calculus", "Chapter 3"
-  description   String?
-  completionPct Int     @default(0) // 0–100, set manually by student
-  orderIndex    Int     @default(0) // Display order within subject
-  isCompleted   Boolean @default(false) // true when completionPct = 100
-  notes         String? // Optional student notes
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  subjectId        String
-  subject          Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  scheduleSessions ScheduleSession[]
-
-  @@map("topics")
-}
-
-// ─────────────────────────────────────────────
-// EXAM DATE
-// ─────────────────────────────────────────────
-
-model ExamDate {
-  id          String   @id @default(cuid())
-  title       String // e.g. "Mathematics Final Exam"
-  examDate    DateTime // Date and time of exam
-  location    String? // Exam hall, room, or online link
-  duration    Int? // Duration in minutes
-  notes       String? // Any extra details
-  isCompleted Boolean  @default(false) // Mark as done after exam
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subjectId String
-  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-
-  @@map("exam_dates")
-}
-
-// ─────────────────────────────────────────────
-// SCHEDULE (AI-Generated Study Plan)
-// ─────────────────────────────────────────────
-
-model Schedule {
-  id            String   @id @default(cuid())
-  name          String   @default("My Study Plan")
-  startDate     DateTime
-  endDate       DateTime
-  isActive      Boolean  @default(true) // Only one active schedule at a time
-  generatedByAI Boolean  @default(true)
-  aiModel       String?  @default("gemini-2.0-flash")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  userId   String
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessions ScheduleSession[]
-
-  @@map("schedules")
-}
-
-// ─────────────────────────────────────────────
-// SCHEDULE SESSION (Individual Study Block)
-// ─────────────────────────────────────────────
-
-model ScheduleSession {
-  id              String      @id @default(cuid())
-  date            DateTime // The day of this session
-  startTime       String // "09:00" (HH:MM)
-  durationMinutes Int // e.g. 60
-  sessionType     SessionType @default(NEW_MATERIAL)
-  isCompleted     Boolean     @default(false)
-  notes           String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  scheduleId String
-  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  subjectId  String
-  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  topicId    String?
-  topic      Topic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
-
-  @@map("schedule_sessions")
-}
-
 enum SessionType {
-  NEW_MATERIAL // Learning new content
-  REVIEW // Revising previously studied content
-  EXAM_PREP // Final preparation before exam
-  PRACTICE // Doing exercises or past papers
+  NEW_MATERIAL
+  REVIEW
+  EXAM_PREP
+  PRACTICE
 }

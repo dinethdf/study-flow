@@ -23,7 +23,7 @@ export function TopBar({ user }: TopBarProps) {
 
   // Simple title generator based on pathname
   const getTitle = () => {
-    const path = pathname.split('/').pop();
+    const path = pathname?.split('/').pop();
     if (!path || path === 'dashboard') return 'Overview';
     return path.charAt(0).toUpperCase() + path.slice(1);
   };
@@ -40,17 +40,19 @@ export function TopBar({ user }: TopBarProps) {
         </Button>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || ''} />
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {user?.email?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuTrigger 
+            render={
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || ''} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {user?.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            }
+          />
+          <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{user?.user_metadata?.full_name || 'Student'}</p>

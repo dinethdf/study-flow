@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { studentEmailSchema } from '@/lib/validators/emailSchema';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { AuthService } from '@/lib/services/AuthService';
+import { UserType } from '@prisma/client';
 
 const registerSchema = z.object({
     email: studentEmailSchema,
@@ -22,29 +25,47 @@ export async function POST(req: Request) {
         const { email, password, name, userType, institution } = parsed.data;
         const supabase = await createClient();
 
+        // Use standard signUp — for this to work WITHOUT email confirmation,
+        // go to Supabase Dashboard → Authentication → Providers → Email
+        // and disable "Confirm email"
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: {
                     full_name: name,
+                    user_type: userType,
+                    institution: institution,
                 },
             },
         });
 
         if (authError) {
+            console.error('[REGISTER_ERROR]', authError.message);
             return Response.json({ error: authError.message }, { status: 400 });
         }
 
+        // Sync user to Prisma database
         if (authData.user) {
-            // In Phase 1/2 we'd usually also create the user in the Prisma DB.
-            // But for the sake of starting small, we just handle the Auth side.
-            // Actually, AGENT.md says "API routes handle request/response, logic in services".
-            // I will implement the service later, but let's at least get Auth basic working.
+            try {
+                const authService = new AuthService(prisma, supabase);
+                await authService.syncUser(
+                    authData.user.id,
+                    email,
+                    name,
+                    userType as UserType,
+                    institution
+                );
+                console.log('[REGISTER] User synced to DB:', authData.user.id);
+            } catch (dbError) {
+                console.error('[REGISTER_DB_SYNC_ERROR]', dbError);
+                // Don't fail registration if DB sync fails — user is at least in Supabase
+            }
         }
 
-        return Response.json({ success: true });
+        return Response.json({ success: true, userId: authData.user?.id });
     } catch (error) {
+        console.error('[REGISTER_ERROR]', error);
         return Response.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

@@ -6,9 +6,10 @@ import { createTopicSchema } from '@/lib/validators/topicSchema';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -18,7 +19,7 @@ export async function POST(
 
     // Verify subject ownership
     const subject = await prisma.subject.findFirst({
-      where: { id: params.id, userId: user.id }
+      where: { id: id, userId: user.id }
     });
 
     if (!subject) {
@@ -33,7 +34,7 @@ export async function POST(
     }
 
     const subjectService = new SubjectService(prisma);
-    const topic = await subjectService.createTopic(params.id, parsed.data);
+    const topic = await subjectService.createTopic(id, parsed.data);
 
     return NextResponse.json({ data: topic }, { status: 201 });
   } catch (error) {

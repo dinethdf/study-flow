@@ -10,14 +10,16 @@ export class AuthService {
         this.supabase = supabase;
     }
 
-    async syncUser(userId: string, email: string, name?: string) {
+    async syncUser(userId: string, email: string, name?: string, userType?: 'SCHOOL' | 'UNIVERSITY', institution?: string) {
         return await this.prisma.user.upsert({
             where: { id: userId },
-            update: { email, name },
+            update: { email, name, userType, institution },
             create: {
                 id: userId,
                 email,
                 name,
+                userType,
+                institution,
             },
         });
     }
